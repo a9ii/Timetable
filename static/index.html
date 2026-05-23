@@ -252,6 +252,7 @@
     .toast-success { background: rgba(16,185,129,.15); border: 1px solid rgba(16,185,129,.3); color: #34d399; }
     .toast-error   { background: rgba(239,68,68,.15);  border: 1px solid rgba(239,68,68,.3);  color: #f87171; }
     .toast-info    { background: rgba(99,102,241,.15); border: 1px solid rgba(99,102,241,.3); color: #818cf8; }
+    
     /* ---- Drag & Drop ---- */
     .card-chip[draggable="true"] { cursor: grab; }
     .card-chip[draggable="true"]:active { cursor: grabbing; }
@@ -359,8 +360,8 @@
           <p class="text-xs text-slate-500 mt-0.5">Generated schedule · click Generate to refresh</p>
         </div>
         <div class="flex items-center gap-3">
-          <!-- Filter by class -->
-          <select id="filter-class" onchange="renderTimetable()"
+          <!-- Filter by class (تم التعديل هنا) -->
+          <select id="filter-class" onchange="App.loadCards()"
             class="form-input !w-52 !py-2 text-sm">
             <option value="">All Classes</option>
           </select>
