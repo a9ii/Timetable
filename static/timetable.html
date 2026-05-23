@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>الجدول الدراسي الذكي | Edupage</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Cairo', 'sans-serif'],
+                        mono: ['Inter', 'monospace'],
+                    },
+                    colors: {
+                        glass: 'rgba(15, 23, 42, 0.65)',
+                        glassBorder: 'rgba(255, 255, 255, 0.1)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --glass-bg: rgba(15, 23, 42, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --neon-accent: #38bdf8;
+            --neon-accent-rgb: 56, 189, 248;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: linear-gradient(-45deg, #020617, #0f172a, #1e1b4b, #082f49);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .ambient-glow {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(120px);
+            z-index: -1;
+            opacity: 0.3;
+            animation: floatGlow 20s ease-in-out infinite alternate;
+        }
+        .glow-1 { top: -10%; right: -10%; width: 50vw; height: 50vw; background: rgba(56, 189, 248, 0.2); }
+        .glow-2 { bottom: -10%; left: -10%; width: 60vw; height: 60vw; background: rgba(139, 92, 246, 0.2); animation-delay: -5s; }
+
+        @keyframes floatGlow {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(-5%, 10%) scale(1.1); }
+        }
+
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            transition: all 0.3s ease;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-2px);
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255,255,255,0.2);
+            box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        .glass-input {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: white;
+            backdrop-filter: blur(8px);
+            transition: all 0.2s ease;
+        }
+
+        .glass-input:focus {
+            outline: none;
+            border-color: var(--neon-accent);
+            background: rgba(0, 0, 0, 0.5);
+            box-shadow: 0 0 0 2px rgba(var(--neon-accent-rgb), 0.2);
+        }
+
+        .glass-input option {
+            background: #0f172a;
+            color: white;
+        }
+
+        .timetable-container {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border-radius: 1rem;
+            padding-bottom: 0.5rem;
+        }
+
+        .timetable-grid {
+            display: grid;
+            gap: 8px; 
+            padding: 4px;
+        }
+
+        .sticky-col {
+            position: sticky;
+            right: 0;
+            z-index: 10;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-left: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .sticky-top-row {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        
+        .sticky-top-corner {
+            position: sticky;
+            top: 0;
+            right: 0;
+            z-index: 20;
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-left: 1px solid rgba(255,255,255,0.1);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.4); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.7); }
+
+        .fade-in-up {
+            opacity: 0;
+            transform: translateY(15px);
+            animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes fadeInUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .loader-ring { display: inline-block; width: 60px; height: 60px; position: relative; }
+        .loader-ring div {
+            box-sizing: border-box; display: block; position: absolute;
+            width: 48px; height: 48px; margin: 6px;
+            border: 4px solid var(--neon-accent); border-radius: 50%;
+            animation: loader-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+            border-color: var(--neon-accent) transparent transparent transparent;
+        }
+        .loader-ring div:nth-child(1) { animation-delay: -0.45s; }
+        .loader-ring div:nth-child(2) { animation-delay: -0.3s; }
+        .loader-ring div:nth-child(3) { animation-delay: -0.15s; }
+        @keyframes loader-ring { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="antialiased p-3 md:p-6 text-base">
+
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+
+    <div class="max-w-[1600px] mx-auto space-y-6">
+        
+        <header class="glass-panel rounded-2xl p-5 md:p-8 flex flex-col xl:flex-row justify-between items-center xl:items-start text-center xl:text-right gap-6 fade-in-up" style="animation-delay: 0.1s;">
+            <div class="xl:w-1/4">
+                <h1 class="text-3xl md:text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-l from-sky-300 to-indigo-400 tracking-tight">
+                    الجدول الدراسي
+                </h1>
+                <p class="text-slate-400 mt-2 md:mt-1 text-sm md:text-base">
+                    Edupage Smart Timetable Matrix
+                </p>
+            </div>
+
+            <!-- تم تحويل قسم الفلاتر إلى نظام الشبكة Grid لاستيعاب 4 فلاتر -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 w-full xl:w-3/4">
+                <div class="flex flex-col gap-1.5 w-full text-right">
+                    <label class="text-[12px] text-slate-400 uppercase tracking-wider font-semibold mr-1">الصف</label>
+                    <select id="classFilter" class="glass-input w-full rounded-xl px-4 py-2.5 text-sm appearance-none cursor-pointer cursor-not-allowed opacity-50" disabled>
+                        <option value="all">الكل</option>
+                    </select>
+                </div>
+                <div class="flex flex-col gap-1.5 w-full text-right">
+                    <label class="text-[12px] text-slate-400 uppercase tracking-wider font-semibold mr-1">الأستاذ</label>
+                    <select id="teacherFilter" class="glass-input w-full rounded-xl px-4 py-2.5 text-sm appearance-none cursor-pointer cursor-not-allowed opacity-50" disabled>
+                        <option value="all">الكل</option>
+                    </select>
+                </div>
+                <!-- إضافة فلتر القاعة -->
+                <div class="flex flex-col gap-1.5 w-full text-right">
+                    <label class="text-[12px] text-slate-400 uppercase tracking-wider font-semibold mr-1">القاعة الدراسية</label>
+                    <select id="classroomFilter" class="glass-input w-full rounded-xl px-4 py-2.5 text-sm appearance-none cursor-pointer cursor-not-allowed opacity-50" disabled>
+                        <option value="all">الكل</option>
+                    </select>
+                </div>
+                <!-- إضافة فلتر الموضوع/المادة -->
+                <div class="flex flex-col gap-1.5 w-full text-right">
+                    <label class="text-[12px] text-slate-400 uppercase tracking-wider font-semibold mr-1">المادة (الموضوع)</label>
+                    <select id="subjectFilter" class="glass-input w-full rounded-xl px-4 py-2.5 text-sm appearance-none cursor-pointer cursor-not-allowed opacity-50" disabled>
+                        <option value="all">الكل</option>
+                    </select>
+                </div>
+            </div>
+        </header>
+
+        <main class="relative min-h-[50vh] md:min-h-[65vh] rounded-2xl">
+            
+            <div id="loadingState" class="absolute inset-0 glass-panel rounded-2xl flex flex-col items-center justify-center z-20 fade-in-up">
+                <div class="loader-ring mb-4"><div></div><div></div><div></div><div></div></div>
+                <h2 class="text-xl font-bold text-sky-400">جاري مزامنة البيانات...</h2>
+                <p class="text-slate-400 text-sm mt-2 text-center px-4">يتم الآن جلب وتحليل البيانات من خوادم Edupage</p>
+            </div>
+
+            <div id="errorState" class="hidden absolute inset-0 glass-panel rounded-2xl flex flex-col items-center justify-center text-center p-6 z-30 fade-in-up">
+                <div class="bg-red-500/10 p-5 rounded-full mb-4 border border-red-500/20 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
+                    <svg class="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-white mb-2">تعذر الاتصال بالخادم</h2>
+                <p class="text-slate-300 max-w-lg mb-6 text-sm" id="errorMessage">
+                    حدث خطأ أثناء محاولة جلب البيانات أو تحليلها. يرجى التحقق من اتصالك والمحاولة مرة أخرى.
+                </p>
+            </div>
+
+            <div id="emptyState" class="hidden absolute inset-0 glass-panel rounded-2xl flex flex-col items-center justify-center text-center p-6 z-10 fade-in-up">
+                <div class="bg-slate-800/50 p-4 rounded-full mb-4 border border-slate-700">
+                    <svg class="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold text-slate-300">لا توجد محاضرات مطابقة</h3>
+                <p class="text-slate-500 text-sm mt-1">الرجاء تغيير خيارات الفلترة لعرض نتائج أخرى.</p>
+            </div>
+
+            <div id="timetableWrapper" class="glass-panel rounded-2xl p-2 md:p-5 hidden opacity-0 transition-opacity duration-700 w-full overflow-hidden">
+                <div class="timetable-container">
+                    <div id="timetableGrid" class="timetable-grid">
+                        </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        const CONFIG = {
+            API_URL: '', // Handled by relative /api paths
+        };
+
+        const State = {
+            raw: {},
+            dictionaries: {
+                classes: new Map(),
+                teachers: new Map(),
+                subjects: new Map(),
+                classrooms: new Map(),
+                periods: new Map(),
+                daysdefs: new Map(),
+                lessons: new Map()
+            },
+            cards: [],
+            // إضافة المتغيرات الجديدة الخاصة بحالة الفلاتر
+            filters: { classId: 'all', teacherId: 'all', classroomId: 'all', subjectId: 'all' },
+            gridStructure: { days: [], periods: [] },
+            periodsToRender: [] 
+        };
+
+        const UI = {
+            loading: document.getElementById('loadingState'),
+            error: document.getElementById('errorState'),
+            empty: document.getElementById('emptyState'),
+            wrapper: document.getElementById('timetableWrapper'),
+            grid: document.getElementById('timetableGrid'),
+            classFilter: document.getElementById('classFilter'),
+            teacherFilter: document.getElementById('teacherFilter'),
+            // ربط الفلاتر الجديدة
+            classroomFilter: document.getElementById('classroomFilter'),
+            subjectFilter: document.getElementById('subjectFilter'),
+            errorMessage: document.getElementById('errorMessage')
+        };
+
+        async function initApp() {
+            try {
+                const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:8080' : '';
+                const endpoints = [
+                    `${API_BASE}/api/teachers`, `${API_BASE}/api/classes`, `${API_BASE}/api/subjects`, 
+                    `${API_BASE}/api/classrooms`, `${API_BASE}/api/periods`, `${API_BASE}/api/days`, `${API_BASE}/api/cards`
+                ];
+                
+                const responses = await Promise.all(endpoints.map(ep => fetch(ep)));
+                for (let r of responses) {
+                    if (!r.ok) throw new Error(`خطأ في الشبكة: ${r.status}`);
+                }
+                
+                const data = await Promise.all(responses.map(r => r.json()));
+
+                State.raw = {
+                    teachers: data[0],
+                    classes: data[1],
+                    subjects: data[2],
+                    classrooms: data[3],
+                    periods: data[4],
+                    daysdefs: data[5],
+                    cards: data[6]
+                };
+                
+                buildDictionaries();
+                populateFilters();
+                updateGrid();
+
+                UI.loading.classList.add('hidden');
+                UI.wrapper.classList.remove('hidden');
+                
+                setTimeout(() => { UI.wrapper.classList.remove('opacity-0'); }, 100);
+                
+                enableFilters();
+                
+                window.addEventListener('resize', applyZoom);
+
+            } catch (error) {
+                console.error("Fetch Error:", error);
+                UI.loading.classList.add('hidden');
+                UI.error.classList.remove('hidden');
+                UI.errorMessage.innerText = error.message || "حدث خطأ غير متوقع.";
+            }
+        }
+
+        function buildDictionaries() {
+            const getTable = (key) => State.raw[key] || [];
+
+            getTable('classes').forEach(row => State.dictionaries.classes.set(row.id, row.name));
+            getTable('teachers').forEach(row => State.dictionaries.teachers.set(row.id, row.name));
+            getTable('subjects').forEach(row => State.dictionaries.subjects.set(row.id, row.name));
+            getTable('classrooms').forEach(row => State.dictionaries.classrooms.set(row.id, row.name));
+            
+            const periodsRaw = getTable('periods');
+            periodsRaw.sort((a, b) => a.index - b.index);
+            periodsRaw.forEach(row => {
+                State.dictionaries.periods.set(row.id, { 
+                    name: row.name, 
+                    start: row.startTime, 
+                    end: row.endTime 
+                });
+                State.gridStructure.periods.push(row.id);
+            });
+
+            const daysdefsRaw = getTable('daysdefs');
+            daysdefsRaw.sort((a, b) => a.index - b.index);
+            daysdefsRaw.forEach(row => {
+                State.dictionaries.daysdefs.set(row.id, { name: row.name, vals: row.binaryValue, index: row.index });
+                State.gridStructure.days.push(row.id);
+            });
+
+            State.cards = getTable('cards').map(card => {
+                const lesson = card.lesson;
+                if (!lesson) return null;
+
+                const classrooms = card.classroomId ? [{
+                    id: card.classroomId,
+                    name: State.dictionaries.classrooms.get(card.classroomId)
+                }] : [];
+                
+                return {
+                    id: card.id,
+                    period: card.periodId,
+                    dayId: card.dayDefId,
+                    lesson: {
+                        subject: { id: lesson.subjectId, name: lesson.subject?.name || State.dictionaries.subjects.get(lesson.subjectId) },
+                        teachers: (lesson.teacherIds || []).map(tid => ({ id: tid, name: State.dictionaries.teachers.get(tid) })),
+                        classes: (lesson.classIds || []).map(cid => ({ id: cid, name: State.dictionaries.classes.get(cid) }))
+                    },
+                    classrooms: classrooms
+                };
+            }).filter(c => c && c.lesson && c.dayId);
+        }
+
+        function populateFilters() {
+            const populateSelect = (selectEl, map) => {
+                const sorted = Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+                sorted.forEach(([id, name]) => {
+                    if(name) {
+                        const option = document.createElement('option');
+                        option.value = id;
+                        option.textContent = name;
+                        selectEl.appendChild(option);
+                    }
+                });
+            };
+
+            populateSelect(UI.classFilter, State.dictionaries.classes);
+            populateSelect(UI.teacherFilter, State.dictionaries.teachers);
+            populateSelect(UI.classroomFilter, State.dictionaries.classrooms); // تفعيل القاعات
+            populateSelect(UI.subjectFilter, State.dictionaries.subjects);     // تفعيل المواد
+
+            // جعل الفلتر يبدأ بالصف الأول افتراضياً
+            if (UI.classFilter.options.length > 1) {
+                UI.classFilter.selectedIndex = 1;
+                State.filters.classId = UI.classFilter.value;
+            }
+        }
+
+        function enableFilters() {
+            // تفعيل جميع الفلاتر
+            [UI.classFilter, UI.teacherFilter, UI.classroomFilter, UI.subjectFilter].forEach(el => {
+                el.disabled = false;
+                el.classList.remove('cursor-not-allowed', 'opacity-50');
+                el.addEventListener('change', handleFilterChange);
+            });
+        }
+
+        // تم تعديل الدالة لتقبل المتغير e لمعرفة أي فلتر تم النقر عليه
+        function handleFilterChange(e) {
+            const changedId = e ? e.target.id : null;
+
+            // إذا تم تغيير أي فلتر، نقوم بإرجاع الفلاتر الأخرى لـ "الكل" (all)
+            if (changedId) {
+                if (changedId !== 'classFilter') UI.classFilter.value = 'all';
+                if (changedId !== 'teacherFilter') UI.teacherFilter.value = 'all';
+                if (changedId !== 'classroomFilter') UI.classroomFilter.value = 'all';
+                if (changedId !== 'subjectFilter') UI.subjectFilter.value = 'all';
+            }
+
+            State.filters.classId = UI.classFilter.value;
+            State.filters.teacherId = UI.teacherFilter.value;
+            State.filters.classroomId = UI.classroomFilter.value;
+            State.filters.subjectId = UI.subjectFilter.value;
+
+            updateGrid();
+        }
+
+        function applyZoom() {
+            if (!State.periodsToRender || State.periodsToRender.length === 0) return;
+            
+            const cols = State.periodsToRender.length;
+            const isMobile = window.innerWidth < 768;
+            
+            if (isMobile) {
+                const dayColWidth = 75; 
+                const periodColWidth = 140; 
+                const gap = 8; 
+                
+                const exactGridWidth = dayColWidth + (cols * periodColWidth) + (cols * gap);
+                const availableWidth = window.innerWidth - 45; 
+                
+                if (exactGridWidth > availableWidth) {
+                    const zoomLevel = availableWidth / exactGridWidth;
+                    UI.grid.style.zoom = zoomLevel;
+                    UI.grid.style.width = exactGridWidth + 'px';
+                } else {
+                    UI.grid.style.zoom = 1;
+                    UI.grid.style.width = exactGridWidth + 'px';
+                }
+                
+                UI.grid.style.margin = '0 auto';
+                UI.grid.style.gridTemplateColumns = `${dayColWidth}px repeat(${cols}, ${periodColWidth}px)`;
+            } else {
+                UI.grid.style.zoom = 1;
+                UI.grid.style.width = '100%';
+                UI.grid.style.margin = '0';
+                UI.grid.style.gridTemplateColumns = `minmax(90px, 110px) repeat(${cols}, minmax(190px, 1fr))`;
+            }
+        }
+
+        function updateGrid() {
+            // تحديث منطق الفلترة ليأخذ كل الحالات الجديدة بالاعتبار
+            const filteredCards = State.cards.filter(card => {
+                const matchClass = State.filters.classId === 'all' || 
+                                   card.lesson.classes.some(c => c.id === State.filters.classId);
+                
+                const matchTeacher = State.filters.teacherId === 'all' || 
+                                     card.lesson.teachers.some(t => t.id === State.filters.teacherId);
+                
+                const matchClassroom = State.filters.classroomId === 'all' || 
+                                       card.classrooms.some(r => r.id === State.filters.classroomId);
+                
+                const matchSubject = State.filters.subjectId === 'all' || 
+                                     (card.lesson.subject && card.lesson.subject.id === State.filters.subjectId);
+
+                return matchClass && matchTeacher && matchClassroom && matchSubject;
+            });
+
+            if (filteredCards.length === 0 && State.cards.length > 0) {
+                UI.grid.innerHTML = '';
+                UI.empty.classList.remove('hidden');
+                return;
+            } else {
+                UI.empty.classList.add('hidden');
+            }
+
+            const activePeriodIds = new Set(filteredCards.map(c => c.period));
+            const periodsToRender = State.gridStructure.periods.filter(pId => activePeriodIds.has(pId));
+            State.periodsToRender = periodsToRender; 
+
+            const gridData = {};
+            State.gridStructure.days.forEach(d => { gridData[d] = {}; });
+            
+            filteredCards.forEach(card => {
+                if(!gridData[card.dayId]) gridData[card.dayId] = {};
+                if(!gridData[card.dayId][card.period]) gridData[card.dayId][card.period] = [];
+                gridData[card.dayId][card.period].push(card);
+            });
+
+            let html = '';
+
+            html += `<div class="p-3 sticky-top-corner rounded-xl flex items-center justify-center font-bold text-slate-300 shadow-md">
+                         اليوم / الحصة
+                     </div>`;
+            
+            periodsToRender.forEach((pId, idx) => {
+                const pInfo = State.dictionaries.periods.get(pId);
+                const delay = 0.05 + (idx * 0.05);
+                html += `
+                    <div class="p-3 sticky-top-row rounded-xl flex flex-col items-center justify-center fade-in-up border-b-2 border-b-sky-500/30 bg-black/20" style="animation-delay: ${delay}s">
+                        <span class="font-bold text-white text-[15px] md:text-lg">${pInfo.name}</span>
+                        <span class="text-[11px] md:text-xs text-sky-200 font-mono mt-1 bg-sky-900/40 px-2 py-0.5 rounded-full border border-sky-400/20" dir="ltr">${pInfo.start || '--:--'} - ${pInfo.end || '--:--'}</span>
+                    </div>`;
+            });
+
+            let animDelayCounter = periodsToRender.length * 0.05 + 0.1;
+
+            State.gridStructure.days.forEach(dayId => {
+                const dayDef = State.dictionaries.daysdefs.get(dayId);
+                const dayName = dayDef.name;
+                
+                html += `
+                    <div class="p-3 sticky-col rounded-xl flex items-center justify-center font-bold text-indigo-300 text-[15px] md:text-lg shadow-md border-r-4 border-r-indigo-500">
+                        ${dayName}
+                    </div>`;
+                
+                animDelayCounter += 0.02;
+
+                periodsToRender.forEach(pId => {
+                    const cardsInCell = gridData[dayId] ? gridData[dayId][pId] : null;
+                    html += `<div class="h-full min-h-[120px] flex flex-col gap-2 fade-in-up" style="animation-delay: ${animDelayCounter}s">`;
+                    
+                    if (cardsInCell && cardsInCell.length > 0) {
+                        cardsInCell.forEach(c => {
+                            // تم تحديث جلب الأسماء بناءً على التحديثات في بنية البيانات
+                            const subjName = c.lesson.subject ? c.lesson.subject.name : 'مادة غير محددة';
+                            const teacherNames = c.lesson.teachers.map(t => t.name).join('، ') || 'بدون أستاذ';
+                            const classNames = c.lesson.classes.map(cl => cl.name).join('، ');
+                            const roomNames = c.classrooms.map(r => r.name).join('، ');
+
+                            html += `
+                                <div class="glass-card rounded-xl p-3 h-full flex flex-col relative border-t-[3px] border-t-sky-400 shadow-lg gap-2">
+                                    <div class="font-bold text-white text-[14px] leading-tight mb-1">
+                                        ${subjName}
+                                    </div>
+                                    <div class="flex flex-col gap-1.5 mt-auto w-full">
+                                        <div class="flex items-start text-[11px] text-sky-100 bg-sky-900/40 border border-sky-500/20 rounded px-2 py-1.5 w-full">
+                                            <svg class="w-3.5 h-3.5 ml-1 mt-0.5 text-sky-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                                            <span class="whitespace-normal break-words">${teacherNames}</span>
+                                        </div>
+                                        <div class="flex items-start gap-1 justify-between w-full">
+                                            <div class="flex items-center text-[11px] text-indigo-100 bg-indigo-900/40 border border-indigo-500/20 rounded px-2 py-1.5 flex-1 min-w-0">
+                                                <svg class="w-3.5 h-3.5 ml-1 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                                <span class="truncate">${classNames}</span>
+                                            </div>
+                                            ${roomNames ? `
+                                            <div class="flex items-start text-[11px] text-emerald-100 bg-emerald-900/40 border border-emerald-500/20 rounded px-2 py-1.5 shrink-0 max-w-[55%]">
+                                                <svg class="w-3.5 h-3.5 ml-1 mt-0.5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                                                <span class="whitespace-normal break-words font-mono text-left" dir="ltr">${roomNames}</span>
+                                            </div>` : ''}
+                                        </div>
+                                    </div>
+                                </div>`;
+                        });
+                    } else {
+                        html += `<div class="bg-black/10 border border-dashed border-white/5 rounded-xl h-full flex flex-col items-center justify-center transition-colors hover:bg-black/20 text-white/10">
+                                    <svg class="w-6 h-6 mb-1 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 12H4"></path></svg>
+                                    <span class="text-[11px] opacity-50">فراغ</span>
+                                 </div>`;
+                    }
+                    html += `</div>`;
+                    animDelayCounter += 0.015;
+                });
+            });
+
+            UI.grid.innerHTML = html;
+            
+            applyZoom();
+        }
+
+        document.addEventListener('DOMContentLoaded', initApp);
+
+    </script>
+</body>
+</html>
