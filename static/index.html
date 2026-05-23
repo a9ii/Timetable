@@ -67,6 +67,7 @@
     #timetable-grid {
       display: grid;
       gap: 4px;
+      transition: min-width 0.3s ease;
     }
     .grid-header-cell {
       background: rgba(99,102,241,.15);
@@ -103,7 +104,7 @@
     }
     .grid-cell:hover { border-color: rgba(99,102,241,.3); }
 
-    /* ---- Card Chip (scheduled lesson) ---- */
+    /* ---- Default Card Chip (Single Class View) ---- */
     .card-chip {
       position: absolute; inset: 3px;
       border-radius: 6px;
@@ -114,12 +115,44 @@
       cursor: default;
       transition: transform .15s, box-shadow .15s;
       backdrop-filter: blur(6px);
+      z-index: 10;
     }
-    .card-chip:hover { transform: scale(1.03); box-shadow: 0 4px 18px rgba(0,0,0,.4); }
+    .card-chip:hover { transform: scale(1.03); box-shadow: 0 4px 18px rgba(0,0,0,.4); z-index: 20; }
     .card-chip .subject  { font-weight: 700; font-size: .73rem; margin-bottom: 2px; }
     .card-chip .teacher  { opacity: .8; }
     .card-chip .class    { opacity: .7; font-size: .64rem; }
     .card-chip .room     { opacity: .6; font-size: .62rem; margin-top: 2px; }
+
+    /* ========================================================
+       MASTER VIEW (All Classes) CSS OVERRIDES
+    ======================================================== */
+    .master-view .grid-cell {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 4px;
+      align-items: flex-start;
+      align-content: flex-start;
+      overflow-y: auto;       
+      min-height: 180px;      
+    }
+    .master-view .card-chip {
+      position: relative;     
+      inset: auto;
+      width: calc(16.66% - 4px); 
+      min-width: 120px;       
+      flex-grow: 1;
+      height: 65px;           
+    }
+    .master-view .grid-cell::-webkit-scrollbar { width: 4px; }
+    .master-view .grid-cell::-webkit-scrollbar-track { background: transparent; }
+    .master-view .grid-cell::-webkit-scrollbar-thumb { background: rgba(99,102,241,.4); border-radius: 2px; }
+
+    /* كلاس الإخفاء المؤقت لمنع التشوه البصري أثناء التحميل */
+    #timetable-grid.hide-updating .card-chip {
+      display: none !important;
+    }
+
 
     /* ---- Nav Tab ---- */
     .nav-tab {
@@ -301,7 +334,6 @@
 ============================================================ -->
 <header class="glass sticky top-0 z-40 px-6 py-3 flex items-center justify-between border-b border-white/5">
   <div class="flex items-center gap-3">
-    <!-- Logo Mark -->
     <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
       <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -314,7 +346,6 @@
     </div>
   </div>
 
-  <!-- Generate Button -->
   <button id="btn-generate" onclick="triggerGenerate()"
     class="btn-primary flex items-center gap-2 text-sm px-5 py-2.5">
     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -360,12 +391,10 @@
           <p class="text-xs text-slate-500 mt-0.5">Generated schedule · click Generate to refresh</p>
         </div>
         <div class="flex items-center gap-3">
-          <!-- Filter by class -->
-          <select id="filter-class" onchange="App.loadCards()"
-            class="form-input !w-52 !py-2 text-sm">
+          <select id="filter-class" onchange="handleFilterChange()" class="form-input !w-52 !py-2 text-sm">
             <option value="">All Classes</option>
           </select>
-          <button onclick="App.loadCards()" class="btn-primary btn-ghost text-xs px-4 py-2">↺ Refresh</button>
+          <button onclick="handleFilterChange()" class="btn-primary btn-ghost text-xs px-4 py-2">↺ Refresh</button>
           <button id="btn-edit-mode" onclick="toggleEditMode()"
             class="btn-primary btn-ghost text-xs px-4 py-2 flex items-center gap-1.5">
             ✏️ <span id="edit-mode-label">Edit Mode</span>
@@ -373,8 +402,9 @@
         </div>
       </div>
       <!-- Timetable container -->
-      <div class="glass rounded-2xl p-4 overflow-x-auto">
-        <div id="timetable-grid" class="min-w-[700px]"></div>
+      <div id="timetable-scroll-container" class="glass rounded-2xl p-4 overflow-x-auto">
+        <div id="timetable-grid" class="master-view" style="min-width: 3000px;"></div>
+        
         <div id="timetable-empty" class="hidden text-center py-20 text-slate-600">
           <p class="text-4xl mb-3">📅</p>
           <p class="font-medium text-slate-400">No timetable generated yet.</p>
@@ -383,9 +413,7 @@
       </div>
     </section>
 
-    <!-- ========================================================
-         TAB: TEACHERS
-    ======================================================== -->
+    <!-- (Master Data Tabs) -->
     <section id="tab-teachers" class="tab-section hidden">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-bold text-white">Teachers</h2>
@@ -403,9 +431,6 @@
       </div>
     </section>
 
-    <!-- ========================================================
-         TAB: CLASSES
-    ======================================================== -->
     <section id="tab-classes" class="tab-section hidden">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-bold text-white">Classes</h2>
@@ -422,9 +447,6 @@
       </div>
     </section>
 
-    <!-- ========================================================
-         TAB: SUBJECTS
-    ======================================================== -->
     <section id="tab-subjects" class="tab-section hidden">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-bold text-white">Subjects</h2>
@@ -440,9 +462,6 @@
       </div>
     </section>
 
-    <!-- ========================================================
-         TAB: CLASSROOMS
-    ======================================================== -->
     <section id="tab-classrooms" class="tab-section hidden">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-bold text-white">Classrooms</h2>
@@ -459,9 +478,6 @@
       </div>
     </section>
 
-    <!-- ========================================================
-         TAB: PERIODS
-    ======================================================== -->
     <section id="tab-periods" class="tab-section hidden">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-bold text-white">Periods</h2>
@@ -479,9 +495,6 @@
       </div>
     </section>
 
-    <!-- ========================================================
-         TAB: DAYS
-    ======================================================== -->
     <section id="tab-days" class="tab-section hidden">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-bold text-white">Operating Days</h2>
@@ -499,9 +512,6 @@
       </div>
     </section>
 
-    <!-- ========================================================
-         TAB: LESSONS
-    ======================================================== -->
     <section id="tab-lessons" class="tab-section hidden">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-bold text-white">Lessons <span class="text-sm text-slate-500 font-normal">(Teaching Requirements)</span></h2>
@@ -523,7 +533,7 @@
 </div>
 
 <!-- ============================================================
-     PROGRESS MODAL (WebSocket streaming)
+     PROGRESS MODAL
 ============================================================ -->
 <div id="progress-modal" class="modal-backdrop hidden">
   <div class="modal-box glass-light">
@@ -542,7 +552,6 @@
       </div>
     </div>
 
-    <!-- Progress Bar -->
     <div class="progress-track mb-3">
       <div id="progress-fill" class="progress-fill" style="width:0%"></div>
     </div>
@@ -551,25 +560,17 @@
       <span id="progress-pct" class="text-indigo-400 font-semibold">0%</span>
     </div>
 
-    <!-- Log Output -->
-    <div id="progress-log"
-      class="bg-black/30 rounded-xl p-3 h-44 overflow-y-auto font-mono text-xs text-slate-400 space-y-0.5 border border-white/5">
-    </div>
+    <div id="progress-log" class="bg-black/30 rounded-xl p-3 h-44 overflow-y-auto font-mono text-xs text-slate-400 space-y-0.5 border border-white/5"></div>
 
-    <!-- Actions -->
     <div class="flex justify-end gap-2 mt-5">
-      <button id="btn-close-progress" onclick="closeProgressModal()" class="btn-primary btn-ghost text-sm px-4 py-2" disabled>
-        Close
-      </button>
-      <button id="btn-view-timetable" onclick="closeProgressModal(); switchTab('timetable', document.querySelector('[data-tab=timetable]'))" class="btn-primary text-sm px-5 py-2 hidden">
-        View Timetable →
-      </button>
+      <button id="btn-close-progress" onclick="closeProgressModal()" class="btn-primary btn-ghost text-sm px-4 py-2" disabled>Close</button>
+      <button id="btn-view-timetable" onclick="closeProgressModal(); switchTab('timetable', document.querySelector('[data-tab=timetable]'))" class="btn-primary text-sm px-5 py-2 hidden">View Timetable →</button>
     </div>
   </div>
 </div>
 
 <!-- ============================================================
-     CRUD MODAL (shared, populated dynamically by JS)
+     CRUD MODAL 
 ============================================================ -->
 <div id="crud-modal" class="modal-backdrop hidden">
   <div class="modal-box glass-light w-full max-w-lg">
@@ -597,12 +598,48 @@
 ============================================================ -->
 <script type="module" src="app.js?v=2"></script>
 <script>
-  // Expose tab switcher globally for onclick= attributes
   function switchTab(name, el) {
     document.querySelectorAll('.tab-section').forEach(s => s.classList.add('hidden'));
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
     document.getElementById('tab-' + name).classList.remove('hidden');
     if (el) el.classList.add('active');
+  }
+
+  function handleFilterChange() {
+    const select = document.getElementById('filter-class');
+    const grid = document.getElementById('timetable-grid');
+    
+    // 1. إضافة كلاس إخفاء البطاقات القديمة فوراً لتجنب التشوه البصري
+    grid.classList.add('hide-updating');
+    
+    // 2. تحديث تصميم وحجم الشبكة
+    if (select.value === "") {
+      grid.style.minWidth = '3000px'; 
+      grid.classList.add('master-view'); 
+    } else {
+      grid.style.minWidth = '700px'; 
+      grid.classList.remove('master-view'); 
+    }
+    
+    // 3. استدعاء دالة تحديث البطاقات
+    if (typeof App !== 'undefined' && typeof App.loadCards === 'function') {
+      App.loadCards();
+    }
+
+    // 4. مراقبة الجدول لإظهار البطاقات من جديد بمجرد أن يقوم app.js بتحديثها فعلياً
+    const observer = new MutationObserver(() => {
+      grid.classList.remove('hide-updating');
+      observer.disconnect(); // إيقاف المراقبة بعد أن أتممنا المهمة
+    });
+
+    // نراقب التغييرات داخل الجدول
+    observer.observe(grid, { childList: true, subtree: true });
+
+    // خطة احتياطية: إرجاع العرض بعد 1.5 ثانية في حال لم يعمل المراقب لسبب ما
+    setTimeout(() => {
+      grid.classList.remove('hide-updating');
+      observer.disconnect();
+    }, 1500);
   }
 </script>
 
