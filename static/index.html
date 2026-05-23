@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Intelligent Timetable System</title>
+  <meta name="description" content="AI-powered school timetable auto-generation with constraint satisfaction scheduling." />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            brand: { 400:'#818cf8', 500:'#6366f1', 600:'#4f46e5', 700:'#4338ca' },
+            surface: { 900:'#0f1117', 800:'#161b27', 700:'#1e2536', 600:'#252d3d', 500:'#2e3a50' }
+          },
+          backdropBlur: { xs:'2px' },
+          animation: {
+            'fade-in': 'fadeIn .3s ease both',
+            'slide-up': 'slideUp .35s cubic-bezier(.16,1,.3,1) both',
+            'spin-slow': 'spin 2s linear infinite',
+            'pulse-bar': 'pulseBar 1.8s ease-in-out infinite',
+          },
+          keyframes: {
+            fadeIn: { from:{opacity:0}, to:{opacity:1} },
+            slideUp: { from:{opacity:0,transform:'translateY(24px)'}, to:{opacity:1,transform:'translateY(0)'} },
+            pulseBar: { '0%,100%':{opacity:1}, '50%':{opacity:.6} },
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ---- Global Reset & Base ---- */
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: #0f1117; color: #e2e8f0; }
+
+    /* ---- Scrollbar ---- */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #161b27; }
+    ::-webkit-scrollbar-thumb { background: #2e3a50; border-radius: 3px; }
+
+    /* ---- Glass Card ---- */
+    .glass {
+      background: rgba(30, 37, 54, 0.72);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(99,102,241,.18);
+    }
+    .glass-light {
+      background: rgba(37, 45, 61, 0.60);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(99,102,241,.12);
+    }
+
+    /* ---- Timetable Grid ---- */
+    #timetable-grid {
+      display: grid;
+      gap: 4px;
+    }
+    .grid-header-cell {
+      background: rgba(99,102,241,.15);
+      border: 1px solid rgba(99,102,241,.22);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: .72rem;
+      font-weight: 600;
+      text-align: center;
+      color: #a5b4fc;
+      letter-spacing: .04em;
+    }
+    .grid-day-label {
+      background: rgba(99,102,241,.10);
+      border: 1px solid rgba(99,102,241,.15);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .72rem;
+      font-weight: 700;
+      color: #818cf8;
+      letter-spacing: .06em;
+      writing-mode: horizontal-tb;
+    }
+    .grid-cell {
+      min-height: 72px;
+      border-radius: 8px;
+      background: rgba(22,27,39,.5);
+      border: 1px solid rgba(255,255,255,.04);
+      position: relative;
+      overflow: hidden;
+      transition: border-color .2s;
+    }
+    .grid-cell:hover { border-color: rgba(99,102,241,.3); }
+
+    /* ---- Card Chip (scheduled lesson) ---- */
+    .card-chip {
+      position: absolute; inset: 3px;
+      border-radius: 6px;
+      padding: 5px 7px;
+      font-size: .68rem;
+      line-height: 1.35;
+      overflow: hidden;
+      cursor: default;
+      transition: transform .15s, box-shadow .15s;
+      backdrop-filter: blur(6px);
+    }
+    .card-chip:hover { transform: scale(1.03); box-shadow: 0 4px 18px rgba(0,0,0,.4); }
+    .card-chip .subject  { font-weight: 700; font-size: .73rem; margin-bottom: 2px; }
+    .card-chip .teacher  { opacity: .8; }
+    .card-chip .class    { opacity: .7; font-size: .64rem; }
+    .card-chip .room     { opacity: .6; font-size: .62rem; margin-top: 2px; }
+
+    /* ---- Nav Tab ---- */
+    .nav-tab {
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: .82rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background .2s, color .2s;
+      color: #94a3b8;
+      white-space: nowrap;
+    }
+    .nav-tab:hover { background: rgba(99,102,241,.12); color: #c7d2fe; }
+    .nav-tab.active { background: rgba(99,102,241,.25); color: #818cf8; font-weight: 600; }
+
+    /* ---- Form Input ---- */
+    .form-input {
+      width: 100%;
+      background: rgba(15,17,23,.8);
+      border: 1px solid rgba(99,102,241,.25);
+      border-radius: 8px;
+      padding: 9px 13px;
+      font-size: .85rem;
+      color: #e2e8f0;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .form-input:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99,102,241,.15);
+    }
+    .form-label {
+      display: block;
+      font-size: .75rem;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-bottom: 5px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    /* ---- Button ---- */
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1, #4338ca);
+      color: #fff;
+      font-weight: 600;
+      padding: 9px 20px;
+      border-radius: 9px;
+      font-size: .85rem;
+      border: none;
+      cursor: pointer;
+      transition: opacity .2s, transform .15s, box-shadow .2s;
+      box-shadow: 0 4px 14px rgba(99,102,241,.35);
+    }
+    .btn-primary:hover { opacity: .92; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,.45); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-danger  { background: linear-gradient(135deg, #ef4444, #dc2626); box-shadow: 0 4px 14px rgba(239,68,68,.3); }
+    .btn-danger:hover { opacity: .9; }
+    .btn-ghost   { background: transparent; border: 1px solid rgba(99,102,241,.3); color: #94a3b8; box-shadow: none; }
+    .btn-ghost:hover { background: rgba(99,102,241,.1); color: #c7d2fe; }
+
+    /* ---- Data Table ---- */
+    .data-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; }
+    .data-table th { font-size: .72rem; font-weight: 600; color: #64748b; letter-spacing: .06em; text-transform: uppercase; padding: 6px 14px; }
+    .data-table td { padding: 10px 14px; font-size: .83rem; }
+    .data-table tr.data-row td:first-child { border-radius: 8px 0 0 8px; }
+    .data-table tr.data-row td:last-child  { border-radius: 0 8px 8px 0; }
+    .data-table tr.data-row td { background: rgba(22,27,39,.7); border-top: 1px solid rgba(255,255,255,.04); border-bottom: 1px solid rgba(255,255,255,.04); transition: background .15s; }
+    .data-table tr.data-row:hover td { background: rgba(37,45,61,.9); }
+
+    /* ---- Modal Backdrop ---- */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.7);
+      backdrop-filter: blur(4px);
+      z-index: 50;
+      display: flex; align-items: center; justify-content: center;
+      animation: fadeIn .2s ease both;
+    }
+    .modal-box {
+      width: 90%; max-width: 520px;
+      border-radius: 18px;
+      padding: 28px 32px;
+      animation: slideUp .3s cubic-bezier(.16,1,.3,1) both;
+    }
+
+    /* ---- Progress Bar ---- */
+    .progress-track {
+      width: 100%; height: 10px;
+      background: rgba(255,255,255,.08);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #6366f1, #818cf8, #a78bfa);
+      border-radius: 99px;
+      transition: width .4s cubic-bezier(.4,0,.2,1);
+      background-size: 200% 100%;
+      animation: gradientShift 2s linear infinite;
+    }
+    @keyframes gradientShift {
+      0%  { background-position: 0% 50%; }
+      100%{ background-position: 200% 50%; }
+    }
+
+    /* ---- Color Dot ---- */
+    .color-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+
+    /* ---- Badge ---- */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: .68rem;
+      font-weight: 600;
+      letter-spacing: .05em;
+    }
+    .badge-lab { background: rgba(16,185,129,.15); color: #34d399; border: 1px solid rgba(16,185,129,.25); }
+    .badge-normal { background: rgba(99,102,241,.12); color: #818cf8; border: 1px solid rgba(99,102,241,.2); }
+
+    /* ---- Toast ---- */
+    #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
+    .toast {
+      padding: 12px 18px; border-radius: 10px; font-size: .83rem; font-weight: 500;
+      animation: slideUp .25s ease both;
+      min-width: 220px; max-width: 340px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.4);
+    }
+    .toast-success { background: rgba(16,185,129,.15); border: 1px solid rgba(16,185,129,.3); color: #34d399; }
+    .toast-error   { background: rgba(239,68,68,.15);  border: 1px solid rgba(239,68,68,.3);  color: #f87171; }
+    .toast-info    { background: rgba(99,102,241,.15); border: 1px solid rgba(99,102,241,.3); color: #818cf8; }
+    /* ---- Drag & Drop ---- */
+    .card-chip[draggable="true"] { cursor: grab; }
+    .card-chip[draggable="true"]:active { cursor: grabbing; }
+
+    .card-chip.dragging {
+      opacity: .35;
+      transform: scale(.96);
+      box-shadow: none !important;
+    }
+
+    .grid-cell.drag-over {
+      background: rgba(99,102,241,.18) !important;
+      border-color: rgba(99,102,241,.6) !important;
+      box-shadow: inset 0 0 0 2px rgba(99,102,241,.5);
+      transition: background .12s, border-color .12s;
+    }
+
+    .grid-cell.drop-ok {
+      animation: flashGreen .4s ease;
+    }
+    .grid-cell.drop-err {
+      animation: flashRed .4s ease;
+    }
+    @keyframes flashGreen {
+      0%,100% { background: rgba(22,27,39,.5); }
+      50%      { background: rgba(16,185,129,.25); border-color: rgba(16,185,129,.6); }
+    }
+    @keyframes flashRed {
+      0%,100% { background: rgba(22,27,39,.5); }
+      50%      { background: rgba(239,68,68,.25); border-color: rgba(239,68,68,.6); }
+    }
+
+    /* Edit mode badge */
+    .edit-hint {
+      font-size: .68rem;
+      color: #64748b;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen">
+
+<!-- ============================================================
+     HEADER
+============================================================ -->
+<header class="glass sticky top-0 z-40 px-6 py-3 flex items-center justify-between border-b border-white/5">
+  <div class="flex items-center gap-3">
+    <!-- Logo Mark -->
+    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+      <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+      </svg>
+    </div>
+    <div>
+      <h1 class="text-[.92rem] font-bold text-white leading-tight">Intelligent Timetable</h1>
+      <p class="text-[.68rem] text-slate-500 leading-tight">CSP Auto-Generation System</p>
+    </div>
+  </div>
+
+  <!-- Generate Button -->
+  <button id="btn-generate" onclick="triggerGenerate()"
+    class="btn-primary flex items-center gap-2 text-sm px-5 py-2.5">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2"
+        d="M13 10V3L4 14h7v7l9-11h-7z"/>
+    </svg>
+    Generate Timetable
+  </button>
+</header>
+
+<!-- ============================================================
+     MAIN LAYOUT
+============================================================ -->
+<div class="flex h-[calc(100vh-57px)]">
+
+  <!-- ---- Sidebar Navigation ---- -->
+  <nav class="w-52 shrink-0 border-r border-white/5 py-4 px-3 flex flex-col gap-1 overflow-y-auto">
+    <p class="text-[.65rem] font-700 text-slate-600 uppercase tracking-widest px-3 mb-2">Views</p>
+    <button class="nav-tab active text-left" data-tab="timetable" onclick="switchTab('timetable',this)">
+      📅 Timetable
+    </button>
+    <p class="text-[.65rem] font-700 text-slate-600 uppercase tracking-widest px-3 mt-4 mb-2">Master Data</p>
+    <button class="nav-tab text-left" data-tab="teachers"   onclick="switchTab('teachers',this)">👨‍🏫 Teachers</button>
+    <button class="nav-tab text-left" data-tab="classes"    onclick="switchTab('classes',this)">🏫 Classes</button>
+    <button class="nav-tab text-left" data-tab="subjects"   onclick="switchTab('subjects',this)">📚 Subjects</button>
+    <button class="nav-tab text-left" data-tab="classrooms" onclick="switchTab('classrooms',this)">🚪 Classrooms</button>
+    <button class="nav-tab text-left" data-tab="periods"    onclick="switchTab('periods',this)">⏰ Periods</button>
+    <button class="nav-tab text-left" data-tab="days"       onclick="switchTab('days',this)">📆 Days</button>
+    <button class="nav-tab text-left" data-tab="lessons"    onclick="switchTab('lessons',this)">📝 Lessons</button>
+  </nav>
+
+  <!-- ---- Main Content Area ---- -->
+  <main class="flex-1 overflow-auto p-5 space-y-5">
+
+    <!-- ========================================================
+         TAB: TIMETABLE
+    ======================================================== -->
+    <section id="tab-timetable" class="tab-section">
+      <!-- Toolbar -->
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-lg font-bold text-white">Weekly Timetable</h2>
+          <p class="text-xs text-slate-500 mt-0.5">Generated schedule · click Generate to refresh</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <!-- Filter by class -->
+          <select id="filter-class" onchange="renderTimetable()"
+            class="form-input !w-52 !py-2 text-sm">
+            <option value="">All Classes</option>
+          </select>
+          <button onclick="App.loadCards()" class="btn-primary btn-ghost text-xs px-4 py-2">↺ Refresh</button>
+          <button id="btn-edit-mode" onclick="toggleEditMode()"
+            class="btn-primary btn-ghost text-xs px-4 py-2 flex items-center gap-1.5">
+            ✏️ <span id="edit-mode-label">Edit Mode</span>
+          </button>
+        </div>
+      </div>
+      <!-- Timetable container -->
+      <div class="glass rounded-2xl p-4 overflow-x-auto">
+        <div id="timetable-grid" class="min-w-[700px]"></div>
+        <div id="timetable-empty" class="hidden text-center py-20 text-slate-600">
+          <p class="text-4xl mb-3">📅</p>
+          <p class="font-medium text-slate-400">No timetable generated yet.</p>
+          <p class="text-sm mt-1">Click <span class="text-indigo-400 font-semibold">Generate Timetable</span> to run the CSP solver.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         TAB: TEACHERS
+    ======================================================== -->
+    <section id="tab-teachers" class="tab-section hidden">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-white">Teachers</h2>
+        <button onclick="openModal('teacher')" class="btn-primary text-sm px-4 py-2">+ Add Teacher</button>
+      </div>
+      <div class="glass rounded-2xl p-4 overflow-x-auto">
+        <table class="data-table">
+          <thead><tr>
+            <th class="text-left">Color</th><th class="text-left">Name</th>
+            <th class="text-left">Code</th><th class="text-left">Max Periods/Wk</th>
+            <th class="text-left">Available Days</th><th class="text-left">Actions</th>
+          </tr></thead>
+          <tbody id="teachers-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         TAB: CLASSES
+    ======================================================== -->
+    <section id="tab-classes" class="tab-section hidden">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-white">Classes</h2>
+        <button onclick="openModal('class')" class="btn-primary text-sm px-4 py-2">+ Add Class</button>
+      </div>
+      <div class="glass rounded-2xl p-4 overflow-x-auto">
+        <table class="data-table">
+          <thead><tr>
+            <th class="text-left">Name</th><th class="text-left">Capacity</th>
+            <th class="text-left">Shift</th><th class="text-left">Actions</th>
+          </tr></thead>
+          <tbody id="classes-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         TAB: SUBJECTS
+    ======================================================== -->
+    <section id="tab-subjects" class="tab-section hidden">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-white">Subjects</h2>
+        <button onclick="openModal('subject')" class="btn-primary text-sm px-4 py-2">+ Add Subject</button>
+      </div>
+      <div class="glass rounded-2xl p-4 overflow-x-auto">
+        <table class="data-table">
+          <thead><tr>
+            <th class="text-left">Name</th><th class="text-left">Type</th><th class="text-left">Actions</th>
+          </tr></thead>
+          <tbody id="subjects-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         TAB: CLASSROOMS
+    ======================================================== -->
+    <section id="tab-classrooms" class="tab-section hidden">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-white">Classrooms</h2>
+        <button onclick="openModal('classroom')" class="btn-primary text-sm px-4 py-2">+ Add Classroom</button>
+      </div>
+      <div class="glass rounded-2xl p-4 overflow-x-auto">
+        <table class="data-table">
+          <thead><tr>
+            <th class="text-left">Name</th><th class="text-left">Type</th>
+            <th class="text-left">Capacity</th><th class="text-left">Actions</th>
+          </tr></thead>
+          <tbody id="classrooms-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         TAB: PERIODS
+    ======================================================== -->
+    <section id="tab-periods" class="tab-section hidden">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-white">Periods</h2>
+        <button onclick="openModal('period')" class="btn-primary text-sm px-4 py-2">+ Add Period</button>
+      </div>
+      <div class="glass rounded-2xl p-4 overflow-x-auto">
+        <table class="data-table">
+          <thead><tr>
+            <th class="text-left">ID</th><th class="text-left">Name</th>
+            <th class="text-left">Start</th><th class="text-left">End</th>
+            <th class="text-left">Shift</th><th class="text-left">Index</th><th class="text-left">Actions</th>
+          </tr></thead>
+          <tbody id="periods-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         TAB: DAYS
+    ======================================================== -->
+    <section id="tab-days" class="tab-section hidden">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-white">Operating Days</h2>
+        <button onclick="openModal('day')" class="btn-primary text-sm px-4 py-2">+ Add Day</button>
+      </div>
+      <div class="glass rounded-2xl p-4 overflow-x-auto">
+        <table class="data-table">
+          <thead><tr>
+            <th class="text-left">ID</th><th class="text-left">Name</th>
+            <th class="text-left">Binary</th><th class="text-left">Index</th>
+            <th class="text-left">Actions</th>
+          </tr></thead>
+          <tbody id="days-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         TAB: LESSONS
+    ======================================================== -->
+    <section id="tab-lessons" class="tab-section hidden">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-white">Lessons <span class="text-sm text-slate-500 font-normal">(Teaching Requirements)</span></h2>
+        <button onclick="openModal('lesson')" class="btn-primary text-sm px-4 py-2">+ Add Lesson</button>
+      </div>
+      <div class="glass rounded-2xl p-4 overflow-x-auto">
+        <table class="data-table">
+          <thead><tr>
+            <th class="text-left">Subject</th><th class="text-left">Teachers</th>
+            <th class="text-left">Classes</th><th class="text-left">Per Week</th>
+            <th class="text-left">Actions</th>
+          </tr></thead>
+          <tbody id="lessons-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ============================================================
+     PROGRESS MODAL (WebSocket streaming)
+============================================================ -->
+<div id="progress-modal" class="modal-backdrop hidden">
+  <div class="modal-box glass-light">
+    <div class="flex items-center gap-3 mb-5">
+      <div id="progress-icon" class="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center">
+        <svg id="icon-spinner" class="w-5 h-5 text-indigo-400 animate-spin-slow" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+        </svg>
+        <span id="icon-done" class="hidden text-2xl">🎉</span>
+        <span id="icon-fail" class="hidden text-2xl">❌</span>
+      </div>
+      <div>
+        <h3 class="font-bold text-white text-base">CSP Solver Running</h3>
+        <p id="progress-subtitle" class="text-xs text-slate-500 mt-0.5">Initialising...</p>
+      </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress-track mb-3">
+      <div id="progress-fill" class="progress-fill" style="width:0%"></div>
+    </div>
+    <div class="flex justify-between text-xs text-slate-500 mb-4">
+      <span id="progress-msg">Starting solver engine...</span>
+      <span id="progress-pct" class="text-indigo-400 font-semibold">0%</span>
+    </div>
+
+    <!-- Log Output -->
+    <div id="progress-log"
+      class="bg-black/30 rounded-xl p-3 h-44 overflow-y-auto font-mono text-xs text-slate-400 space-y-0.5 border border-white/5">
+    </div>
+
+    <!-- Actions -->
+    <div class="flex justify-end gap-2 mt-5">
+      <button id="btn-close-progress" onclick="closeProgressModal()" class="btn-primary btn-ghost text-sm px-4 py-2" disabled>
+        Close
+      </button>
+      <button id="btn-view-timetable" onclick="closeProgressModal(); switchTab('timetable', document.querySelector('[data-tab=timetable]'))" class="btn-primary text-sm px-5 py-2 hidden">
+        View Timetable →
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     CRUD MODAL (shared, populated dynamically by JS)
+============================================================ -->
+<div id="crud-modal" class="modal-backdrop hidden">
+  <div class="modal-box glass-light w-full max-w-lg">
+    <div class="flex items-center justify-between mb-5">
+      <h3 id="crud-title" class="font-bold text-white text-base">Add Record</h3>
+      <button onclick="closeCrudModal()" class="text-slate-500 hover:text-white transition-colors text-xl leading-none">&times;</button>
+    </div>
+    <form id="crud-form" onsubmit="submitCrudForm(event)" class="space-y-4">
+      <div id="crud-fields"></div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeCrudModal()" class="btn-primary btn-ghost text-sm px-4 py-2">Cancel</button>
+        <button type="submit" class="btn-primary text-sm px-5 py-2">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============================================================
+     TOAST CONTAINER
+============================================================ -->
+<div id="toast-container"></div>
+
+<!-- ============================================================
+     APP SCRIPT
+============================================================ -->
+<script type="module" src="app.js?v=2"></script>
+<script>
+  // Expose tab switcher globally for onclick= attributes
+  function switchTab(name, el) {
+    document.querySelectorAll('.tab-section').forEach(s => s.classList.add('hidden'));
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.remove('hidden');
+    if (el) el.classList.add('active');
+  }
+</script>
+
+</body>
+</html>
